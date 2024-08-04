@@ -1,0 +1,51 @@
+{
+  "name": "fx",
+  "author": "stagas",
+  "version": "1.0.0",
+  "description": "fx is a powerful, elegant, data-oriented state management system.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest",
+    "postinstall": "link-local"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./jsx-runtime": {
+      "import": "./src/jsx-runtime.ts",
+      "require": "./src/jsx-runtime.ts"
+    },
+    "./jsx-dev-runtime": {
+      "import": "./src/jsx-dev-runtime.ts",
+      "require": "./src/jsx-dev-runtime.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "": [
+        "./src/index.ts"
+      ],
+      "jsx-runtime": [
+        "./src/jsx-runtime.ts"
+      ],
+      "jsx-dev-runtime": [
+        "./src/jsx-dev-runtime.ts"
+      ]
+    }
+  },
+  "devDependencies": {
+    "ambient-dts": "github:stagas/ambient-dts",
+    "file-matcher": "^1.3.0",
+    "vite": "^5.0.12",
+    "vitest": "^1.2.2"
+  },
+  "dependencies": {
+    "jsx": "github:stagas/jsx",
+    "signal": "github:stagas/signal",
+    "utils": "github:stagas/utils"
+  }
+}
