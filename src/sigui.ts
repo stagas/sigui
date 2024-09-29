@@ -1,6 +1,7 @@
-import { fns, hmr as jsxHmr, Off, Start } from 'jsx'
-import $, { fx as signalfx } from 'signal'
+import { createGroupElement, fns, hmr as jsxHmr, Off, Start } from 'jsx'
+import $, { Signal, fx as signalfx } from 'signal'
 import { isFunction, once } from 'utils'
+import { updateChildren } from './dom.ts'
 
 export { mount } from 'jsx'
 
@@ -8,41 +9,41 @@ let jsxState: { disposables: Off[] } = { disposables: [] }
 
 type X = typeof $
 
-export interface Fx extends X {
+export interface Sigui extends X {
+  __proto__: typeof $
   fx: typeof signalfx
   dispose(): void
   disposables: Off[]
   [Symbol.dispose](): void
 }
 
-const stack: Fx[] = []
+const stack: Sigui[] = []
 
-export function Fx() {
-  const _fx: Fx = Object.assign(function (state?: any, props?: any): any {
+export function Sigui() {
+  const sigui: Sigui = Object.assign(function (state?: any, props?: any): any {
     return $(state, props)
   } as any, {
     fx(fn: any, thisArg: any, desc?: any): any {
       if (!isFunction(fn)) return signalfx(fn, thisArg, desc)
       const dispose = fx(fn, thisArg)
-      _fx.disposables.push(dispose)
+      sigui.disposables.push(dispose)
       return dispose
     },
     dispose: once(function dispose() {
-      _fx.disposables.forEach(fn => fn())
+      sigui.disposables.forEach(fn => fn())
     }),
     disposables: [],
-    [Symbol.dispose](this: Fx) {
+    [Symbol.dispose](this: Sigui) {
       if (stack.pop() !== this) {
-        throw new Error('Fx out-of-order.')
+        throw new Error('Effect out-of-order.')
       }
     }
   })
-  // @ts-ignore
-  _fx.__proto__ = $
+  sigui.__proto__ = $
   const last = stack.at(-1)
-  last?.disposables.push(_fx.dispose)
-  stack.push(_fx)
-  return _fx
+  last?.disposables.push(sigui.dispose)
+  stack.push(sigui)
+  return sigui
 }
 
 export const fx: typeof signalfx = function fx(fn: any, thisArg: any, desc?: any): any {
@@ -56,36 +57,79 @@ export function cleanup() {
   jsxState.disposables.splice(0).forEach(fn => fn())
 }
 
-export function hmr<T extends Record<string, any>>(start: Start, state: T, replaceState: (x: T) => void) {
+export function hmr<T extends Record<string, any>>(start: Start, state: T, setState: (x: T) => void) {
   if (!import.meta.hot) return () => { }
   return jsxHmr(start, Object.assign(state, { disposables: [] }), function (newState) {
     Object.assign(newState, { disposables: [] })
     jsxState = newState as any
-    replaceState(newState)
+    setState(newState)
   })
 }
 
 fns.computedAttributeFn = (el, name, fn) => {
   fx(() => {
     if (name === 'style') {
-      Object.assign(el.style, fn())
+      const result = fn()
+      if (typeof result === 'string') {
+        el.setAttribute('style', result)
+      }
+      else {
+        Object.assign(el.style, result)
+      }
     }
     else {
       el.setAttribute(
         name,
-        [fn()].flat(Infinity).filter(Boolean).join(' ')
+        [fn()]
+          .flat(Infinity)
+          .filter(Boolean)
+          .join(' ')
       )
     }
   })
 }
 
+type Component = Element | { el: Element }
+
 fns.mapItemFn = (item) => {
   if (typeof item !== 'function') return item
-  const child = new Text()
+  let parent: HTMLElement | SVGElement | null
+  let child: Text | Element = new Text()
   const fn = item
-  fx(() => {
-    const result = fn()
-    child.textContent = result
+  queueMicrotask(() => {
+    fx(function render() {
+      let result:
+        | null
+        | undefined
+        | string
+        | Component
+        | Map<any, Component>
+        | Set<Component>
+        | Array<Component> = fn()
+
+      if (result instanceof Signal) {
+        result = result.valueOf()
+      }
+
+      if (result instanceof Map || result instanceof Set) {
+        result = [...result.values()]
+      }
+
+      if (Array.isArray(result)) {
+        if (!parent) parent = child.parentElement ?? createGroupElement()
+        updateChildren(
+          parent,
+          result.map((item) => 'el' in item ? item.el : item)
+        )
+        return
+      }
+      else if (result !== null && typeof result === 'object') {
+        child.replaceWith(child = 'el' in result ? result.el : result)
+      }
+      else {
+        child.textContent = result ?? ''
+      }
+    })
   })
   return child
 }
@@ -100,8 +144,8 @@ if (import.meta.vitest) {
       let enter = 0
       let leave = 0
       {
-        using _ = Fx()
-        _.fx(() => {
+        using $ = Sigui()
+        $.fx(() => {
           enter++
           return () => {
             leave++
@@ -118,8 +162,8 @@ if (import.meta.vitest) {
       let leave: string[] = []
 
       function Child() {
-        using _ = Fx()
-        _.fx(() => {
+        using $ = Sigui()
+        $.fx(() => {
           enter.push('b')
           return () => {
             leave.push('b')
@@ -128,9 +172,9 @@ if (import.meta.vitest) {
       }
 
       {
-        using _ = Fx()
+        using $ = Sigui()
         const child = Child()
-        _.fx(() => {
+        $.fx(() => {
           enter.push('a')
           return () => {
             leave.push('a')
@@ -149,8 +193,8 @@ if (import.meta.vitest) {
       let leave: string[] = []
 
       function Child() {
-        using _ = Fx()
-        _.fx(() => {
+        using $ = Sigui()
+        $.fx(() => {
           enter.push('b')
           return () => {
             leave.push('b')
@@ -159,15 +203,15 @@ if (import.meta.vitest) {
       }
 
       function Parent() {
-        using _ = Fx()
+        using $ = Sigui()
         const child = Child()
-        _.fx(() => {
+        $.fx(() => {
           enter.push('a')
           return () => {
             leave.push('a')
           }
         })
-        return _
+        return $
       }
 
       const p = Parent()
@@ -191,21 +235,21 @@ if (import.meta.vitest) {
       let leave: string[] = []
 
       function Child(x: string) {
-        using _ = Fx()
-        _.fx(() => {
+        using $ = Sigui()
+        $.fx(() => {
           enter.push(x)
           return () => {
             leave.push(x)
           }
         })
-        return _
+        return $
       }
 
       {
-        using _ = Fx()
+        using $ = Sigui()
         const b = Child('b')
         const c = Child('c')
-        _.fx(() => {
+        $.fx(() => {
           enter.push('a')
           return () => {
             leave.push('a')
@@ -224,9 +268,9 @@ if (import.meta.vitest) {
       let enter = 0
       let leave = 0
       {
-        using _ = Fx()
+        using $ = Sigui()
         setTimeout(() => {
-          _.fx(() => {
+          $.fx(() => {
             enter++
             return () => {
               leave++

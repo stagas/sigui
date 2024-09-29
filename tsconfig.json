@@ -1,6 +1,8 @@
 {
   "include": [
-    "src"
+    "examples",
+    "src",
+    "vendor"
   ],
   "compilerOptions": {
     "rootDir": ".",
@@ -17,6 +19,7 @@
     "allowSyntheticDefaultImports": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
+    "jsxImportSource": "../../src",
     "useDefineForClassFields": true,
     "exactOptionalPropertyTypes": true,
     "experimentalDecorators": true,

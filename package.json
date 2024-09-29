@@ -1,13 +1,14 @@
 {
-  "name": "fx",
+  "name": "sigui",
   "author": "stagas",
   "version": "1.0.0",
-  "description": "fx is a powerful, elegant, data-oriented state management system.",
+  "description": "sigui",
   "license": "MIT",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "test": "vitest",
+    "dev": "vite --open /examples/basic/index.html",
+    "test": "vitest run",
     "postinstall": "link-local"
   },
   "exports": {
@@ -40,6 +41,7 @@
   "devDependencies": {
     "ambient-dts": "github:stagas/ambient-dts",
     "file-matcher": "^1.3.0",
+    "open-in-editor": "^2.2.0",
     "vite": "^5.0.12",
     "vitest": "^1.2.2"
   },
