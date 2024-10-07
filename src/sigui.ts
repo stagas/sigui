@@ -68,6 +68,7 @@ fns.mapItemFn = (item) => {
         | null
         | undefined
         | string
+        | boolean
         | Component
         | Map<any, Component>
         | Set<Component>
@@ -99,7 +100,9 @@ fns.mapItemFn = (item) => {
         child.replaceWith(child = next)
       }
       else {
-        child.textContent = result ?? ''
+        child.textContent = typeof result === 'boolean'
+          ? ''
+          : (result ?? '')
       }
     })
   })
