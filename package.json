@@ -8,7 +8,8 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "vite --open /examples/basic/index.html",
-    "test": "vitest run",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "postinstall": "link-local"
   },
   "exports": {
@@ -39,10 +40,10 @@
     }
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^15.7.4",
     "ambient-dts": "github:stagas/ambient-dts",
     "open-in-editor": "^2.2.0",
-    "vite": "^5.0.12",
-    "vitest": "^1.2.2"
+    "vite": "^5.0.12"
   },
   "dependencies": {
     "jsx": "github:stagas/jsx",

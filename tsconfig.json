@@ -2,6 +2,7 @@
   "include": [
     "examples",
     "src",
+    "test",
     "vendor"
   ],
   "compilerOptions": {
