@@ -11,10 +11,8 @@ function ensureElementId(el: Element): string {
   return el.getAttribute(ELEMENT_ID)!
 }
 
-export function updateChildren(parent: Element, elements: Element[]): void {
-  const children = Array.from(parent.children)
-
-  const map = new Map(elements.map((el, index) =>
+export function updateChildren(parent: Element, prev: Element[], next: Element[]): void {
+  const map = new Map(next.map((el, index) =>
     [ensureElementId(el), { el, index }] as const
   ))
 
@@ -22,7 +20,7 @@ export function updateChildren(parent: Element, elements: Element[]): void {
   const toRemove: Element[] = []
 
   // update existing elements and mark for removal
-  children.forEach((child) => {
+  prev.forEach((child) => {
     const childId = ensureElementId(child)
     const match = map.get(childId)
     if (match) {
@@ -45,7 +43,7 @@ export function updateChildren(parent: Element, elements: Element[]): void {
   toRemove.forEach(el => parent.removeChild(el))
 
   // add new elements
-  elements.forEach((el, index) => {
+  next.forEach((el, index) => {
     const id = ensureElementId(el)
     if (map.has(id)) {
       parent.insertBefore(el, parent.children[index] || null)

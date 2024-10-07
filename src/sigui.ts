@@ -5,9 +5,9 @@ import { updateChildren } from './dom.ts'
 
 export { mount } from 'jsx'
 
-let jsxState: { disposables: Off[] } = { disposables: [] }
-
 type X = typeof $
+
+type Component = Element | { el: Element }
 
 export interface Sigui extends X {
   __proto__: typeof $
@@ -17,7 +17,14 @@ export interface Sigui extends X {
   [Symbol.dispose](): void
 }
 
+let jsxState: { disposables: Off[] } = { disposables: [] }
+
+const capturing: any[][] = []
+let currentCaptured: (() => void)[] = []
+
 const stack: Sigui[] = []
+
+function call(fn: () => any) { fn() }
 
 export function Sigui() {
   const sigui: Sigui = Object.assign(function (state?: any, props?: any): any {
@@ -30,7 +37,7 @@ export function Sigui() {
       return dispose
     },
     dispose: once(function dispose() {
-      sigui.disposables.forEach(fn => fn())
+      sigui.disposables.forEach(call)
     }),
     disposables: [],
     [Symbol.dispose](this: Sigui) {
@@ -46,24 +53,57 @@ export function Sigui() {
   return sigui
 }
 
-export const fx: typeof signalfx = function fx(fn: any, thisArg: any, desc?: any): any {
-  if (!isFunction(fn)) return signalfx(fn, thisArg, desc)
-  const dispose = once(signalfx(fn, thisArg))
-  disposable(dispose)
-  return dispose
-}
+fns.mapItemFn = (item) => {
+  if (typeof item !== 'function') return item
+  let parent: ((HTMLElement | SVGElement) & { _captured?: any[] }) | null
+  let child: (Text | Element) & { _captured?: any[] } = new Text()
+  let captured: any[]
+  const fn = item
+  queueMicrotask(() => {
+    fx(function render() {
+      capturing.push([])
+      currentCaptured = captured
 
-export function cleanup() {
-  jsxState.disposables.splice(0).forEach(fn => fn())
-}
+      let result:
+        | null
+        | undefined
+        | string
+        | Component
+        | Map<any, Component>
+        | Set<Component>
+        | Array<Component> = fn(captured)
 
-export function hmr<T extends Record<string, any>>(start: Start, state: T, setState: (x: T) => void) {
-  if (!import.meta.hot) return () => { }
-  return jsxHmr(start, Object.assign(state, { disposables: [] }), function (newState) {
-    Object.assign(newState, { disposables: [] })
-    jsxState = newState as any
-    setState(newState)
+      captured = capturing.pop()!
+
+      if (result instanceof Signal) {
+        result = result.valueOf()
+      }
+
+      if (result instanceof Map || result instanceof Set) {
+        result = [...result.values()]
+      }
+
+      if (Array.isArray(result)) {
+        if (!parent) parent = child.parentElement ?? createGroupElement()
+        const next = result.map((item) => 'el' in item ? item.el : item)
+        const prev = Array.from(parent.children)
+        updateChildren(
+          parent,
+          prev,
+          next
+        )
+        return
+      }
+      else if (result !== null && typeof result === 'object') {
+        const next = 'el' in result ? result.el : result
+        child.replaceWith(child = next)
+      }
+      else {
+        child.textContent = result ?? ''
+      }
+    })
   })
+  return child
 }
 
 fns.computedAttributeFn = (el, name, fn) => {
@@ -89,51 +129,32 @@ fns.computedAttributeFn = (el, name, fn) => {
   })
 }
 
-type Component = Element | { el: Element }
-
-fns.mapItemFn = (item) => {
-  if (typeof item !== 'function') return item
-  let parent: HTMLElement | SVGElement | null
-  let child: Text | Element = new Text()
-  const fn = item
-  queueMicrotask(() => {
-    fx(function render() {
-      let result:
-        | null
-        | undefined
-        | string
-        | Component
-        | Map<any, Component>
-        | Set<Component>
-        | Array<Component> = fn()
-
-      if (result instanceof Signal) {
-        result = result.valueOf()
-      }
-
-      if (result instanceof Map || result instanceof Set) {
-        result = [...result.values()]
-      }
-
-      if (Array.isArray(result)) {
-        if (!parent) parent = child.parentElement ?? createGroupElement()
-        updateChildren(
-          parent,
-          result.map((item) => 'el' in item ? item.el : item)
-        )
-        return
-      }
-      else if (result !== null && typeof result === 'object') {
-        child.replaceWith(child = 'el' in result ? result.el : result)
-      }
-      else {
-        child.textContent = result ?? ''
-      }
-    })
-  })
-  return child
+export const fx: typeof signalfx = function fx(fn: any, thisArg: any, desc?: any): any {
+  if (!isFunction(fn)) return signalfx(fn, thisArg, desc)
+  const dispose = once(signalfx(fn, thisArg))
+  disposable(dispose)
+  return dispose
 }
 
 export function disposable(fn: Off) {
+  capturing.at(-1)?.push(fn)
   jsxState.disposables.push(fn)
+}
+
+export function dispose(): true {
+  currentCaptured?.forEach(call)
+  return true
+}
+
+export function cleanup() {
+  jsxState.disposables.splice(0).forEach(call)
+}
+
+export function hmr<T extends Record<string, any>>(start: Start, state: T, setState: (x: T) => void) {
+  if (!import.meta.hot) return () => { }
+  return jsxHmr(start, Object.assign(state, { disposables: [] }), function (newState) {
+    Object.assign(newState, { disposables: [] })
+    jsxState = newState as any
+    setState(newState)
+  })
 }

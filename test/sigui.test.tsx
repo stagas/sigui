@@ -1,6 +1,6 @@
 /** @jsxImportSource ../src */
 import { ticks } from 'utils'
-import { cleanup, Sigui } from '../src/sigui.ts'
+import { cleanup, dispose, Sigui } from '../src/sigui.ts'
 
 describe('Sigui', () => {
   it('simple top level', () => {
@@ -147,7 +147,7 @@ describe('Sigui', () => {
     expect(leave).toBe(1)
   })
 
-  it.skip('removing child disposes', async () => {
+  it('removing child disposes', async () => {
     let enter: string[] = []
     let leave: string[] = []
 
@@ -166,7 +166,7 @@ describe('Sigui', () => {
       using $ = Sigui()
       const info = $({ name: 'b' })
       const div = <Div name="a">
-        {() => <Div name={info.name}></Div>}
+        {() => dispose() && <Div name={info.name}></Div>}
       </Div>
       await ticks(1)
       info.name = 'c'
@@ -175,6 +175,40 @@ describe('Sigui', () => {
     expect(enter).toEqual(['a', 'b', 'c'])
     expect(leave).toEqual(['b'])
     cleanup()
-    expect(leave).toEqual(['b', 'c', 'a'])
+    expect(leave).toEqual(['b', 'a', 'c'])
+  })
+
+  it('removing multiple children dispose', async () => {
+    let enter: string[] = []
+    let leave: string[] = []
+
+    function Div({ name, children }: { name: string, children?: any }) {
+      using $ = Sigui()
+      $.fx(() => {
+        enter.push(name)
+        return () => {
+          leave.push(name)
+        }
+      })
+      return <div>{children}</div>
+    }
+
+    {
+      using $ = Sigui()
+      const info = $({ name: 'b' })
+      const div = <Div name="a">
+        {() => dispose() && [
+          <Div name={info.name + 1}></Div>,
+          <Div name={info.name + 2}></Div>,
+        ]}
+      </Div>
+      await ticks(1)
+      info.name = 'c'
+    }
+
+    expect(enter).toEqual(['a', 'b1', 'b2', 'c1', 'c2'])
+    expect(leave).toEqual(['b1', 'b2'])
+    cleanup()
+    expect(leave).toEqual(['b1', 'b2', 'a', 'c1', 'c2'])
   })
 })
