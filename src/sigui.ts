@@ -121,13 +121,20 @@ fns.computedAttributeFn = (el, name, fn) => {
       }
     }
     else {
-      el.setAttribute(
-        name,
-        [fn()]
-          .flat(Infinity)
-          .filter(Boolean)
-          .join(' ')
-      )
+      const result = fn()
+      if (typeof result === 'string' || Array.isArray(result)) {
+        el.setAttribute(
+          name,
+          [result]
+            .flat(Infinity)
+            .filter(Boolean)
+            .join(' ')
+        )
+      }
+      else {
+        // @ts-ignore
+        el[name] = result
+      }
     }
   })
 }
