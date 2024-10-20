@@ -122,12 +122,11 @@ fns.computedAttributeFn = (el, name, fn) => {
     }
     else {
       const result = fn()
-      if (typeof result === 'string' || Array.isArray(result)) {
+      if (typeof result === 'string' || typeof result === 'number' || Array.isArray(result)) {
         el.setAttribute(
           name,
           [result]
             .flat(Infinity)
-            .filter(Boolean)
             .join(' ')
         )
       }
