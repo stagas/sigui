@@ -86,7 +86,7 @@ fns.mapItemFn = (item) => {
 
       if (Array.isArray(result)) {
         if (!parent) parent = child.parentElement ?? createGroupElement()
-        const next = result.map((item) => 'el' in item ? item.el : item)
+        const next = result.filter(Boolean).map((item) => 'el' in item ? item.el : item)
         const prev = Array.from(parent.children)
         updateChildren(
           parent,
